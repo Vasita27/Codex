@@ -1,29 +1,31 @@
-import requests
+from llama_index.readers.github import GithubRepositoryReader
+from llama_index.readers.github import GithubClient
 
-def parse_github_repo(url):
-    owner, repo = url.strip('/').split('/')[-2:]
-    api = f"https://api.github.com/repos/{owner}/{repo}/contents"
-    chunks = []
+def parse_github_repo(repo_url):
+    # Extract owner and repo name
+    owner, repo = repo_url.strip('/').split('/')[-2:]
 
-    token = ""
-    headers = {
-        "Authorization": f"token {token}"
-    }
+    # GitHub personal access token
+    github_token = ""
+    github_client = GithubClient(github_token)
 
-    def fetch(url):
-        res = requests.get(url, headers=headers).json()
+    reader = GithubRepositoryReader(
+        github_client=github_client,
+        owner=owner,
+        repo=repo,
+        filter_directories=(
+            # Exclude common irrelevant folders
+            [".vscode", "__pycache__", "node_modules", ".github", "dist", "build", "coverage"],
+            GithubRepositoryReader.FilterType.EXCLUDE,
+        ),
+        filter_file_extensions=(
+            # Exclude non-code files (keep only relevant ones)
+            [".md", ".json", ".lock", ".log", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".svg"],
+            GithubRepositoryReader.FilterType.EXCLUDE,
+        ),
+    )
 
-        if isinstance(res, dict) and res.get("message"):
-            print("Error:", res.get("message"))
-            return
+    # Load repo contents
+    docs = reader.load_data(branch="master")  # or "master" if that’s the default
 
-        for item in res:
-            if item['type'] == 'file' and item['name'].endswith(('.py', '.js')):
-                content = requests.get(item['download_url']).text
-                chunks.extend(content.split('\n\n'))  # naive chunking
-            elif item['type'] == 'dir':
-                fetch(item['url'])
-
-    fetch(api)
-    return chunks
-
+    return docs

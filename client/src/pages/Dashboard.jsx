@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 
 function Dashboard() {
   const [repoUrl, setRepoUrl] = useState('');
@@ -69,7 +70,7 @@ function Dashboard() {
       {answer && (
         <div style={{ marginTop: '2rem' }}>
           <h3>💬 Answer:</h3>
-          <p>{answer}</p>
+          <ReactMarkdown>{answer}</ReactMarkdown>
         </div>
       )}
     </div>

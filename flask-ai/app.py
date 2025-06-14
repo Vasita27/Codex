@@ -15,8 +15,9 @@ def ask():
     question = data['question']
 
     chunks = parse_github_repo(repo_url)
-    print(chunks)
+    
     answer = embed_and_search(chunks, question)
+    
 
     return jsonify({"answer": answer})
 

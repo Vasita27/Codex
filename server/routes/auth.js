@@ -23,4 +23,29 @@ router.post("/login", async (req, res) => {
   res.json({ token });
 });
 
+// JWT verification middleware
+function verifyToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ msg: "No token" });
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ msg: "Token invalid" });
+  }
+}
+
+// Get current user info (/me)
+router.get('/me', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('username email');
+    if (!user) return res.status(404).json({ msg: "User not found" });
+    res.json({ username: user.username, email: user.email });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+});
+
 module.exports = router;

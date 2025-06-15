@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoute'
 import ReadmeGenerator from './pages/ReadmeGenerator'
 import MainPage from './pages/MainPage'
+import './App.css';
 
 function App() {
   return (

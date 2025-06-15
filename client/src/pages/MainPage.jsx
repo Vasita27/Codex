@@ -47,7 +47,6 @@ const MainPage = () => {
 
   return (
     <div className="mainpage-container">
-      {/* Navigation/Header Bar */}
       <nav className="mainpage-header-bar">
         <div className="mainpage-welcome">
           {username && (
@@ -64,7 +63,7 @@ const MainPage = () => {
 
       <div className="mainpage-content-outer">
         <div className="mainpage-header">
-          <h1>Developer Dashboard</h1>
+          <h1>Welcome to Codex - Your Repomate</h1>
           <p>Choose your development tool to get started</p>
         </div>
 

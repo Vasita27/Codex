@@ -88,66 +88,70 @@ const ReadmeGenerator = () => {
   };
 
   return (
-    <div className="container">
+    <div className="readmegen-outer-bg">
       <Header />
-      <div className="header">
-        <h1>README Generator</h1>
-        <p>Transform any GitHub repository into a professional README.md using AI</p>
+      <div className="readmegen-container">
+        <div className="header">
+          <h1>README Generator</h1>
+          <p>Transform any GitHub repository into a professional README.md using AI</p>
+        </div>
+
+        {error && <div className="alert error">{error}</div>}
+        {success && <div className="alert success">{success}</div>}
+
+        {step === "input" && (
+          <div className="card" style={{ textAlign: "left" }}>
+            <h2 style={{ textAlign: "left" }}>Enter GitHub Repository</h2>
+            <div className="form-group" style={{ textAlign: "left" }}>
+              <label>GitHub Repository URL</label>
+              <input
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/username/repository-name"
+                disabled={loading}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+              <button
+                onClick={generateReadme}
+                disabled={loading}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner"></span> Generating README...
+                  </>
+                ) : (
+                  "Generate README"
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "generating" && (
+          <div className="card center">
+            <div className="loader"></div>
+            <h2>Generating Your README...</h2>
+            <p>Please wait while we analyze your code.</p>
+          </div>
+        )}
+
+        {step === "complete" && readmeContent && (
+          <div className="card">
+            <h2>README Generated Successfully!</h2>
+            <div className="actions">
+              <button onClick={copyToClipboard}>Copy</button>
+              <button onClick={downloadReadme}>Download</button>
+              <button onClick={resetGenerator}>New README</button>
+            </div>
+            <div className="preview-container">
+              <pre className="preview">{readmeContent}</pre>
+            </div>
+          </div>
+        )}
       </div>
-
-      {error && <div className="alert error">{error}</div>}
-      {success && <div className="alert success">{success}</div>}
-
-      {step === "input" && (
-        <div className="card" style={{ textAlign: "left" }}>
-          <h2 style={{ textAlign: "left" }}>Enter GitHub Repository</h2>
-          <div className="form-group" style={{ textAlign: "left" }}>
-            <label>GitHub Repository URL</label>
-            <input
-              type="url"
-              value={githubUrl}
-              onChange={(e) => setGithubUrl(e.target.value)}
-              placeholder="https://github.com/username/repository-name"
-              disabled={loading}
-            />
-          </div>
-          <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
-            <button
-              onClick={generateReadme}
-              disabled={loading}
-              style={{ padding: '0.5rem 1rem' }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner"></span> Generating README...
-                </>
-              ) : (
-                "Generate README"
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === "generating" && (
-        <div className="card center">
-          <div className="loader"></div>
-          <h2>Generating Your README...</h2>
-          <p>Please wait while we analyze your code.</p>
-        </div>
-      )}
-
-      {step === "complete" && readmeContent && (
-        <div className="card">
-          <h2>README Generated Successfully!</h2>
-          <div className="actions">
-            <button onClick={copyToClipboard}>Copy</button>
-            <button onClick={downloadReadme}>Download</button>
-            <button onClick={resetGenerator}>New README</button>
-          </div>
-          <pre className="preview">{readmeContent}</pre>
-        </div>
-      )}
     </div>
   );
 };

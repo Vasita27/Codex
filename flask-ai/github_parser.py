@@ -82,11 +82,24 @@ class GitHubParser:
     """
     Advanced parser for extracting metadata, file tree, and raw contents
     independently of llama_index.
+
+    All API requests are authenticated using a GitHub token if available.
     """
     def __init__(self, github_url):
         self.github_url = github_url
         self.owner, self.repo = self._parse_github_url(github_url)
         self.api_base = f"https://api.github.com/repos/{self.owner}/{self.repo}"
+        self.github_token = os.getenv("GITHUB_TOKEN")
+        if not self.github_token:
+            print("WARNING: No GITHUB_TOKEN found. You may hit rate limits.")
+
+    def _get_headers(self):
+        headers = {
+            "Accept": "application/vnd.github.v3+json"
+        }
+        if self.github_token:
+            headers["Authorization"] = f"token {self.github_token}"
+        return headers
 
     def _parse_github_url(self, url):
         parsed = urlparse(url)
@@ -96,14 +109,14 @@ class GitHubParser:
         return path_parts[0], path_parts[1]
 
     def get_repo_data(self):
-        repo_resp = requests.get(self.api_base)
+        repo_resp = requests.get(self.api_base, headers=self._get_headers())
         if repo_resp.status_code != 200:
             raise Exception(f"Could not fetch repo metadata: {repo_resp.text}")
         repo_json = repo_resp.json()
 
         branch = repo_json.get("default_branch", "main")
         tree_url = f"{self.api_base}/git/trees/{branch}?recursive=1"
-        tree_resp = requests.get(tree_url)
+        tree_resp = requests.get(tree_url, headers=self._get_headers())
         if tree_resp.status_code != 200:
             raise Exception(f"Could not fetch repo tree: {tree_resp.text}")
         tree_json = tree_resp.json()
@@ -111,13 +124,14 @@ class GitHubParser:
         for item in tree_json.get("tree", []):
             if item["type"] == "blob":
                 file_path = item["path"]
+                print(f"Parsing file: {file_path}")
                 content = ""
                 if any(file_path.endswith(ext) for ext in [
                     ".js", ".py", ".json", ".md", ".txt", ".ts",
                     ".jsx", ".tsx", ".css", ".html", ".yml", ".yaml"
                 ]):
                     file_url = f"{self.api_base}/contents/{file_path}"
-                    file_resp = requests.get(file_url)
+                    file_resp = requests.get(file_url, headers=self._get_headers())
                     if file_resp.status_code == 200:
                         content_json = file_resp.json()
                         if content_json.get("encoding") == "base64":
@@ -149,7 +163,8 @@ class GitHubParser:
         chunks = []
         for file_path, fdict in repo_data["files"].items():
             content = fdict["content"]
-            if not content: continue
+            if not content:
+                continue
             # For markdown and small files, one chunk
             if file_path.endswith(('.md', '.txt', '.json', '.yml', '.yaml')):
                 chunks.append({"text": content, "file_path": file_path})

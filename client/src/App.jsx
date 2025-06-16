@@ -3,6 +3,9 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoute'
+import ReadmeGenerator from './pages/ReadmeGenerator'
+import MainPage from './pages/MainPage'
+import './App.css';
 
 function App() {
   return (
@@ -14,6 +17,17 @@ function App() {
           <Dashboard />
         </PrivateRoute>
       } />
+       <Route path="/readme-gen" element={
+        <PrivateRoute>
+          <ReadmeGenerator />
+        </PrivateRoute>
+      } />
+        <Route path="/mainpage" element={
+        <PrivateRoute>
+          <MainPage />
+        </PrivateRoute>
+      } />
+      
     </Routes>
   )
 }

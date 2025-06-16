@@ -146,11 +146,6 @@ class ReadmeGenerator:
         prompt = f"""
 Generate a comprehensive and professional README.md for a GitHub repository with the following information:
 
-**Repository Name:** {context['repo_name']}
-**Description:** {context['description']}
-**Primary Language:** {context['language']}
-**Total Files:** {context['file_count']}
-
 **File Structure:**
 {file_structure}
 

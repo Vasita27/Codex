@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 import json
-import re
 from typing import Dict, List, Any
 import google.generativeai as genai
 
@@ -30,42 +29,28 @@ class ReadmeGenerator:
             'documentation': [],
             'assets': []
         }
-        patterns = {
-            'config_files': [
-                r'package\.json$', r'requirements\.txt$', r'Dockerfile$',
-                r'docker-compose\.yml$', r'\.env$', r'config\.(js|json|py)$',
-                r'vite\.config\.js$', r'eslint\.config\.js$'
-            ],
-            'main_files': [
-                r'main\.(py|js|ts)$', r'app\.(py|js|ts)$', r'index\.(py|js|ts|html)$',
-                r'server\.(py|js|ts)$'
-            ],
-            'frontend_files': [
-                r'\.(jsx?|tsx?|vue|svelte)$', r'\.(css|scss|sass|less)$',
-                r'\.(html|htm)$'
-            ],
-            'backend_files': [
-                r'\.(py|java|php|rb|go|rs)$', r'routes/.*\.(js|ts|py)$',
-                r'models/.*\.(js|ts|py)$', r'controllers/.*\.(js|ts|py)$'
-            ],
-            'test_files': [
-                r'test.*\.(py|js|ts)$', r'.*test\.(py|js|ts)$',
-                r'spec/.*\.(py|js|ts)$', r'.*spec\.(py|js|ts)$'
-            ],
-            'documentation': [
-                r'README\.md$', r'CHANGELOG\.md$', r'CONTRIBUTING\.md$',
-                r'LICENSE$', r'\.md$'
-            ],
-            'assets': [
-                r'\.(png|jpg|jpeg|gif|svg|ico)$', r'\.(pdf|doc|docx)$'
-            ]
-        }
         for file_path, file_info in files.items():
-            if file_info.get('type') == 'file':
-                for category, category_patterns in patterns.items():
-                    if any(re.search(pattern, file_path, re.IGNORECASE) for pattern in category_patterns):
-                        categorized[category].append(file_path)
-                        break
+            # SKIP node_modules files
+            if "node_modules/" in file_path.replace("\\", "/"):
+                continue
+            if file_info.get('type') != 'file':
+                continue
+            ext = os.path.splitext(file_path)[-1].lower()
+            # You can tune these lists as needed
+            if ext in ['.json', '.yml', '.yaml', '.env', '.lock', '.conf', '.ini'] or 'config' in file_path.lower():
+                categorized['config_files'].append(file_path)
+            elif ext in ['.js', '.jsx', '.ts', '.tsx']:
+                categorized['main_files'].append(file_path)
+            elif ext in ['.css', '.scss', '.sass', '.less', '.html', '.htm']:
+                categorized['frontend_files'].append(file_path)
+            elif ext in ['.py', '.java', '.php', '.rb', '.go', '.rs']:
+                categorized['backend_files'].append(file_path)
+            elif ext in ['.md'] or any(name in file_path.lower() for name in ['readme', 'changelog', 'contributing', 'license']):
+                categorized['documentation'].append(file_path)
+            elif ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.pdf', '.doc', '.docx']:
+                categorized['assets'].append(file_path)
+            elif ext in ['.test.js', '.test.ts', '.spec.js', '.spec.ts']:
+                categorized['test_files'].append(file_path)
         return categorized
 
     def extract_dependencies(self, files: Dict) -> Dict[str, List[str]]:
@@ -96,6 +81,7 @@ class ReadmeGenerator:
     def generate_readme_content(self, repo_data: Dict) -> str:
         categorized_files = self.analyze_repo_structure(repo_data)
         dependencies = self.extract_dependencies(repo_data['files'])
+        key_files = self._get_key_file_contents(repo_data['files'], categorized_files)
         context = {
             'repo_name': repo_data.get('name', 'Unknown'),
             'description': repo_data.get('description', ''),
@@ -103,12 +89,19 @@ class ReadmeGenerator:
             'file_structure': categorized_files,
             'dependencies': dependencies,
             'file_count': len(repo_data.get('files', {})),
-            'key_files': self._get_key_file_contents(repo_data['files'], categorized_files)
+            'key_files': key_files
         }
+
+        # Print all key file names (but do not include their contents anywhere)
+        print("\n========= KEY FILES ANALYZED =========")
+        for file_path in key_files:
+            print(file_path)
+        print("======================================\n")
+
         prompt = self._create_readme_prompt(context)
         try:
             response = self.model.generate_content(prompt)
-            print("Gemini AI response (first 500 chars):", response.text[:500])
+            print("Gemini AI generated README.")
             return response.text
         except Exception as e:
             print("Gemini AI error:", e)
@@ -116,16 +109,38 @@ class ReadmeGenerator:
 
     def _get_key_file_contents(self, files: Dict, categorized: Dict) -> Dict:
         key_contents = {}
-        for file_path in categorized['main_files'][:3]:
-            if file_path in files:
-                content = files[file_path].get('content', '')
-                if len(content) < 5000:
-                    key_contents[file_path] = content[:2000]
-        for file_path in categorized['config_files'][:2]:
-            if file_path in files:
-                content = files[file_path].get('content', '')
-                if len(content) < 2000:
-                    key_contents[file_path] = content
+        max_length = 3000
+
+        # Always include package.json if present (anywhere in the repo, but not in node_modules)
+        for fp in files:
+            if "node_modules/" in fp.replace("\\", "/"):
+                continue
+            if fp.endswith('package.json'):
+                content = files[fp].get('content', '')
+                if content:
+                    key_contents[fp] = content[:max_length] + ("\n... (truncated)" if len(content) > max_length else "")
+                break  # only the first package.json
+
+        # Include all .js, .jsx, .ts, .tsx, .py, .txt files (avoid duplicates, skip node_modules)
+        for fp, finfo in files.items():
+            if "node_modules/" in fp.replace("\\", "/"):
+                continue
+            ext = os.path.splitext(fp)[-1].lower()
+            if ext in {'.js', '.jsx', '.ts', '.tsx', '.py', '.txt'} and fp not in key_contents:
+                content = finfo.get('content', '')
+                if content:
+                    key_contents[fp] = content[:max_length] + ("\n... (truncated)" if len(content) > max_length else "")
+
+        # Include README files (any .md with 'readme' in name, case-insensitive, skip node_modules)
+        for fp, finfo in files.items():
+            if "node_modules/" in fp.replace("\\", "/"):
+                continue
+            lower_fp = fp.lower()
+            if (lower_fp.endswith('readme.md') or 'readme' in lower_fp) and fp not in key_contents:
+                content = finfo.get('content', '')
+                if content:
+                    key_contents[fp] = content[:max_length] + ("\n... (truncated)" if len(content) > max_length else "")
+
         return key_contents
 
     def _create_readme_prompt(self, context: Dict) -> str:
@@ -139,10 +154,7 @@ class ReadmeGenerator:
             (f" (+{len(deps)-10} more)" if len(deps) > 10 else "")
             for dep_type, deps in context['dependencies'].items() if deps
         ])
-        key_files_info = "\n".join([
-            f"**{file_path}:**\n```\n{content[:500]}...\n```"
-            for file_path, content in context['key_files'].items()
-        ])
+        # Do NOT include key file contents in the prompt
         prompt = f"""
 Generate a comprehensive and professional README.md for a GitHub repository with the following information:
 
@@ -152,18 +164,16 @@ Generate a comprehensive and professional README.md for a GitHub repository with
 **Dependencies:**
 {dependencies_info}
 
-**Key File Contents:**
-{key_files_info}
-
 Please generate a README.md that includes:
-1. A compelling project title and description
-2. Features list based on the code analysis
-3. Installation instructions based on the dependencies
-4. Usage examples
+1. A compelling project title, badges and description
+2. A watch demo link or Live website link option
+3. Features list based on the code analysis
+4. Technology stack
 5. Project structure explanation
-6. Technology stack
-7. Contributing guidelines
-8. License information
+6. Usage examples
+7. Installation instructions based on the dependencies
+8. Contributing guidelines
+9. License information
 
 Make it professional, engaging, and developer-friendly. Use proper markdown formatting with emojis, badges, and clear sections. Infer the project's purpose and functionality from the code structure and dependencies.
 """

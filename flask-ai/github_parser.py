@@ -4,6 +4,7 @@ from llama_index.readers.github import GithubClient
 import requests
 from urllib.parse import urlparse
 import base64
+from typing import Dict, Any
 from github import Github as PyGithub
 from typing import List, Dict, Any
 
@@ -122,6 +123,23 @@ class GitHubParser:
         for item in tree_json.get("tree", []):
             if item["type"] == "blob":
                 file_path = item["path"]
+                # SKIP node_modules and similar folders
+                norm_path = file_path.replace("\\", "/")
+                if (
+                    norm_path.startswith("node_modules/")
+                    or "/node_modules/" in norm_path
+                    or norm_path.startswith(".git/")
+                    or "/.git/" in norm_path
+                    or norm_path.startswith("dist/")
+                    or "/dist/" in norm_path
+                    or norm_path.startswith("build/")
+                    or "/build/" in norm_path
+                    or norm_path.startswith("coverage/")
+                    or "/coverage/" in norm_path
+                    or norm_path.startswith("__pycache__/")
+                    or "/__pycache__/" in norm_path
+                ):
+                    continue
                 print(f"Parsing file: {file_path}")
                 content = ""
                 if any(file_path.endswith(ext) for ext in [

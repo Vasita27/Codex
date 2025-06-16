@@ -6,7 +6,7 @@ def parse_github_repo(repo_url):
     owner, repo = repo_url.strip('/').split('/')[-2:]
 
     # GitHub personal access token
-    github_token = ""
+    github_token = "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"
     github_client = GithubClient(github_token)
 
     reader = GithubRepositoryReader(

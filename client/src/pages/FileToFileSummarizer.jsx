@@ -99,7 +99,6 @@ const FileToFileSummarizer = () => {
 
         {step === "input" && (
           <div className="card" style={{ textAlign: "left" }}>
-            <h2>Enter GitHub Repository</h2>
             <div className="form-group">
               <label>GitHub Repository URL</label>
               <input

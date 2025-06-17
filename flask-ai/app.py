@@ -130,6 +130,7 @@ def generate_readme():
             "success": False,
             "error": f"Server error: {str(e)}"
         }), 500
+    
 @app.route('/api/file-summary/generate', methods=['POST'])
 def generate_file_summary():
     try:

@@ -1,11 +1,13 @@
 import React, { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import Header from "./Header";
-import "./FileToFileSummarizer.css"; // or "./ReadmeGenerator.css"
+import "./FileToFileSummarizer.css";
 
 const FileToFileSummarizer = () => {
   const [githubUrl, setGithubUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [summaryContent, setSummaryContent] = useState("");
+  const [lastSummarizedUrl, setLastSummarizedUrl] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [step, setStep] = useState("input");
@@ -30,7 +32,7 @@ const FileToFileSummarizer = () => {
     setSuccess("");
     setStep("generating");
     try {
-      const response = await fetch("/api/file-summary/generate", {
+      const response = await fetch("/api/file-summary/generate-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ githubUrl: githubUrl.trim() }),
@@ -42,6 +44,7 @@ const FileToFileSummarizer = () => {
         return;
       }
       setSummaryContent(data.data.summary_content);
+      setLastSummarizedUrl(githubUrl.trim());
       setStep("complete");
       setSuccess("Summary generated successfully!");
     // eslint-disable-next-line no-unused-vars
@@ -63,18 +66,40 @@ const FileToFileSummarizer = () => {
     }
   };
 
-  const downloadSummary = () => {
-    const blob = new Blob([summaryContent], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "repo_file_summaries_flash.md";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    setSuccess("Summary downloaded successfully!");
-    setTimeout(() => setSuccess(""), 3000);
+  const downloadPDFSummary = async () => {
+    if (!lastSummarizedUrl) {
+      setError("No summary to download. Please generate a summary first.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await fetch("/api/file-summary/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ githubUrl: lastSummarizedUrl }),
+      });
+      if (!response.ok) {
+        setError("Failed to generate PDF summary");
+        return;
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "summary.pdf");
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      setSuccess("PDF summary downloaded successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+    // eslint-disable-next-line no-unused-vars
+    } catch (err) {
+      setError("Failed to download PDF summary. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const reset = () => {
@@ -82,6 +107,7 @@ const FileToFileSummarizer = () => {
     setSuccess("");
     setError("");
     setSummaryContent("");
+    setLastSummarizedUrl("");
     setStep("input");
   };
 
@@ -91,7 +117,7 @@ const FileToFileSummarizer = () => {
       <div className="readmegen-container">
         <div className="header">
           <h1>File-to-File Summarizer</h1>
-          <p>Generate, preview, copy, or download a Markdown summary of every file in any GitHub repository using AI</p>
+          <p>Instant GitHub repo summaries.</p>
         </div>
 
         {error && <div className="alert error">{error}</div>}
@@ -111,6 +137,7 @@ const FileToFileSummarizer = () => {
             </div>
             <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
               <button
+                type="button"
                 onClick={generateSummary}
                 disabled={loading}
                 style={{ padding: '0.5rem 1rem' }}
@@ -139,12 +166,30 @@ const FileToFileSummarizer = () => {
           <div className="card">
             <h2>Summary Generated Successfully!</h2>
             <div className="actions">
-              <button onClick={copyToClipboard}>Copy</button>
-              <button onClick={downloadSummary}>Download</button>
-              <button onClick={reset}>New Summary</button>
+              <button
+                type="button"
+                onClick={copyToClipboard}
+                disabled={loading}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                onClick={downloadPDFSummary}
+                disabled={loading}
+              >
+                {loading ? "Downloading..." : "Download PDF"}
+              </button>
+              <button
+                type="button"
+                onClick={reset}
+                disabled={loading}
+              >
+                Reset
+              </button>
             </div>
-            <div className="preview-container">
-              <pre className="preview">{summaryContent}</pre>
+            <div className="preview-container preview">
+              <ReactMarkdown>{summaryContent}</ReactMarkdown>
             </div>
           </div>
         )}

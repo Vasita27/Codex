@@ -1,16 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from github_parser import parse_github_repo, get_github_branches
 from embedding_store import embed_and_search
 from readme_generator import ReadmeGenerator
+from file_summarizer import summarize_repo_as_string, create_pdf_from_summary
 import os
 import logging
 from urllib.parse import urlparse
-import io
-from flask import send_file
-from file_summarizer import summarize_repo_as_string
-
-
 
 try:
     from dotenv import load_dotenv
@@ -26,6 +22,9 @@ app = Flask(__name__)
 CORS(app)
 readme_gen = ReadmeGenerator()
 CORS(app)  # Enable CORS for all routes
+
+# In-memory cache for summaries
+summary_cache = {}
 
 # Add request logging
 @app.before_request
@@ -130,9 +129,10 @@ def generate_readme():
             "success": False,
             "error": f"Server error: {str(e)}"
         }), 500
-    
-@app.route('/api/file-summary/generate', methods=['POST'])
-def generate_file_summary():
+
+
+@app.route('/api/file-summary/generate-preview', methods=['POST'])
+def generate_file_summary_preview():
     try:
         data = request.json
         github_url = data.get('githubUrl')
@@ -151,6 +151,9 @@ def generate_file_summary():
                 "error": "No summary was generated."
             }), 500
 
+        # Store summary in memory cache
+        summary_cache[github_url] = summary_content
+
         return jsonify({
             "success": True,
             "data": {
@@ -164,9 +167,44 @@ def generate_file_summary():
             "error": f"Server error: {str(e)}"
         }), 500
 
+@app.route('/api/file-summary/generate', methods=['POST'])
+def generate_file_summary():
+    try:
+        data = request.json
+        github_url = data.get('githubUrl')
+
+        if not github_url:
+            return jsonify({
+                "success": False,
+                "error": "GitHub URL is required"
+            }), 400
+
+        summary_content = summary_cache.get(github_url)
+        if not summary_content:
+            return jsonify({
+                "success": False,
+                "error": "No summary found. Please generate a preview first."
+            }), 400
+
+        out_name = "File-to-File Summaries.pdf"
+
+        create_pdf_from_summary(summary_content, out_name)
+
+        return send_file(
+            out_name,
+            as_attachment=True,
+            download_name="File-to-File Summaries.pdf",
+            mimetype="application/pdf"
+        )
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Server error: {str(e)}"
+        }), 500
+
 
 if __name__ == '__main__':
-    app.run(port=5001)
     # Check for required environment variables
     required_vars = ['GITHUB_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]

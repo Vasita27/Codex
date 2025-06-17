@@ -5,6 +5,8 @@ import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoute'
 import ReadmeGenerator from './pages/ReadmeGenerator'
 import MainPage from './pages/MainPage'
+import FileToFileSummarizer from './pages/FileToFileSummarizer';
+
 import './App.css';
 
 function App() {
@@ -27,6 +29,12 @@ function App() {
           <MainPage />
         </PrivateRoute>
       } />
+        <Route path="/file-to-file" element={
+        <PrivateRoute>
+          <FileToFileSummarizer />
+        </PrivateRoute>
+      } />
+
       
     </Routes>
   )

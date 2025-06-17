@@ -6,6 +6,11 @@ from readme_generator import ReadmeGenerator
 import os
 import logging
 from urllib.parse import urlparse
+import io
+from flask import send_file
+from file_summarizer import summarize_repo_as_string
+
+
 
 try:
     from dotenv import load_dotenv
@@ -125,6 +130,39 @@ def generate_readme():
             "success": False,
             "error": f"Server error: {str(e)}"
         }), 500
+@app.route('/api/file-summary/generate', methods=['POST'])
+def generate_file_summary():
+    try:
+        data = request.json
+        github_url = data.get('githubUrl')
+
+        if not github_url:
+            return jsonify({
+                "success": False,
+                "error": "GitHub URL is required"
+            }), 400
+
+        summary_content = summarize_repo_as_string(github_url)
+
+        if not summary_content:
+            return jsonify({
+                "success": False,
+                "error": "No summary was generated."
+            }), 500
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "summary_content": summary_content
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Server error: {str(e)}"
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(port=5001)

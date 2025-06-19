@@ -81,14 +81,14 @@ const MainPage = () => {
                 <Code size={40} />
               </div>
               <h3>Codebase Q & A</h3>
-              <p>Analyze and optimize your code for better performance</p>
+              <p>Ask any question about your repo and get instant explanations</p>
             </div>
             <div className="circle-button" onClick={handleFiletoFile}>
               <div className="circle-icon">
                 <Settings size={40} />
               </div>
               <h3>File to File Summary</h3>
-              <p>Manage and organize your development projects</p>
+              <p>Get key file summaries from your repo with a download option</p>
             </div>
           </div>
         </div>

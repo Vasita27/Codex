@@ -4,6 +4,7 @@ from llama_index.readers.github import GithubClient
 import requests
 from urllib.parse import urlparse
 import base64
+from typing import Dict, Any
 from github import Github as PyGithub
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -106,6 +107,18 @@ class GitHubParser:
         if not self.github_token:
             print("WARNING: No GITHUB_TOKEN found. You may hit rate limits.")
 
+        # Extensions to skip parsing
+        self.skip_extensions = [
+            ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".mp4",
+            ".mp3", ".wav", ".ogg", ".webm", ".mov", ".avi", ".wmv", ".flv",
+            ".mkv", ".bmp", ".tiff", ".tif", ".webp", ".apng", ".m4a", ".aac",
+            ".flac", ".opus", ".zip", ".tar", ".gz", ".rar", ".7z", ".pdf",
+            ".exe", ".dll"
+        ]
+        self.skip_filenames = [
+            "package-lock.json", ".gitignore"
+        ]
+
     def _get_headers(self):
         headers = {
             "Accept": "application/vnd.github.v3+json"
@@ -120,6 +133,36 @@ class GitHubParser:
         if len(path_parts) < 2:
             raise ValueError("Invalid GitHub repository URL")
         return path_parts[0], path_parts[1]
+
+    def _should_skip(self, file_path):
+        norm_path = file_path.replace("\\", "/").lower()
+        fname = os.path.basename(norm_path)
+        ext = os.path.splitext(fname)[1].lower()
+
+        # Skip if in skip list
+        if (
+            norm_path.startswith("node_modules/")
+            or "/node_modules/" in norm_path
+            or norm_path.startswith(".git/")
+            or "/.git/" in norm_path
+            or norm_path.startswith("dist/")
+            or "/dist/" in norm_path
+            or norm_path.startswith("build/")
+            or "/build/" in norm_path
+            or norm_path.startswith("coverage/")
+            or "/coverage/" in norm_path
+            or norm_path.startswith("__pycache__/")
+            or "/__pycache__/" in norm_path
+        ):
+            return True
+        if ext in self.skip_extensions:
+            return True
+        if fname in self.skip_filenames:
+            return True
+        # Skip readme or similar
+        if fname.lower().startswith("readme"):
+            return True
+        return False
 
     def get_repo_data(self):
         repo_resp = requests.get(self.api_base, headers=self._get_headers())
@@ -137,11 +180,14 @@ class GitHubParser:
         for item in tree_json.get("tree", []):
             if item["type"] == "blob":
                 file_path = item["path"]
+                if self._should_skip(file_path):
+                    continue
                 print(f"Parsing file: {file_path}")
                 content = ""
+                # Only certain extensions will be parsed for content
                 if any(file_path.endswith(ext) for ext in [
                     ".js", ".py", ".json", ".md", ".txt", ".ts",
-                    ".jsx", ".tsx", ".css", ".html", ".yml", ".yaml"
+                    ".jsx", ".tsx", ".html", ".yml", ".yaml"
                 ]):
                     file_url = f"{self.api_base}/contents/{file_path}"
                     file_resp = requests.get(file_url, headers=self._get_headers())
@@ -150,7 +196,7 @@ class GitHubParser:
                         if content_json.get("encoding") == "base64":
                             try:
                                 raw = base64.b64decode(content_json["content"])
-                                content = raw.decode("utf-8")[:20000]
+                                content = raw.decode("utf-8", errors="replace")[:20000]
                             except Exception:
                                 content = ""
                 files[file_path] = {
@@ -196,10 +242,3 @@ class GitHubParser:
     def get_file_list(self):
         repo_data = self.get_repo_data()
         return list(repo_data["files"].keys())
-
-    def get_readme_content(self):
-        repo_data = self.get_repo_data()
-        for file_path, fdict in repo_data["files"].items():
-            if file_path.lower().startswith("readme"):
-                return fdict["content"]
-        return ""

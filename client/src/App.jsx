@@ -5,7 +5,8 @@ import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoute'
 import ReadmeGenerator from './pages/ReadmeGenerator'
 import MainPage from './pages/MainPage'
-import GraphPage from './pages/GraphPage'
+import FileToFileSummarizer from './pages/FileToFileSummarizer';
+
 import './App.css';
 
 function App() {
@@ -28,11 +29,12 @@ function App() {
           <MainPage />
         </PrivateRoute>
       } />
-      <Route path="/graph" element={
+        <Route path="/file-to-file" element={
         <PrivateRoute>
-          <GraphPage />
+          <FileToFileSummarizer />
         </PrivateRoute>
       } />
+
       
     </Routes>
   )

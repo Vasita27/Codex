@@ -76,6 +76,19 @@ def parse_github_repo(repo_url: str, branch: str = "main") -> Any:
     except Exception as e:
         print(f"Error parsing repository: {str(e)}")
         raise
+def get_file_metadata(repo_url: str, branch: str = "main") -> Any:
+    """Get file metadata from the given repository URL and branch."""
+    docs = parse_github_repo(repo_url, branch)
+    file_data = [
+    {
+        "path": doc.metadata["file_path"],  # or doc.path
+        "content": doc.text,                # or doc.content
+    }
+    for doc in docs
+    ]
+    return file_data
+    
+    
    
 
 class GitHubParser:

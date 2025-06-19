@@ -143,6 +143,8 @@ class ReadmeGenerator:
             f"**{file_path}:**\n```\n{content[:500]}...\n```"
             for file_path, content in context['key_files'].items()
         ])
+        print('--')
+        print(key_files_info)
         prompt = f"""
 Generate a comprehensive and professional README.md for a GitHub repository with the following information:
 

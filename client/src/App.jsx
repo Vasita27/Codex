@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import PrivateRoute from './components/PrivateRoute'
 import ReadmeGenerator from './pages/ReadmeGenerator'
 import MainPage from './pages/MainPage'
+import GraphPage from './pages/GraphPage'
 import './App.css';
 
 function App() {
@@ -25,6 +26,11 @@ function App() {
         <Route path="/mainpage" element={
         <PrivateRoute>
           <MainPage />
+        </PrivateRoute>
+      } />
+      <Route path="/graph" element={
+        <PrivateRoute>
+          <GraphPage />
         </PrivateRoute>
       } />
       

@@ -1,7 +1,16 @@
-from llama_index.core import VectorStoreIndex, ServiceContext
+from llama_index.core import ServiceContext, VectorStoreIndex, StorageContext,load_index_from_storage
 from llama_index.core.settings import Settings
 from llama_index.llms.openai import OpenAI
+import chromadb
 from llama_index.llms.ollama import Ollama
+from llama_index.vector_stores.chroma import ChromaVectorStore
+from pymongo import MongoClient
+from llama_index.core.vector_stores.simple import SimpleVectorStore
+from datetime import datetime
+import hashlib, json
+from llama_index.core.storage.docstore.simple_docstore import SimpleDocumentStore
+from llama_index.core.storage.index_store.simple_index_store import SimpleIndexStore
+
 
 
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -13,6 +22,7 @@ import os
 
 # load_dotenv()
 # api_key = os.getenv("OPENAI_API_KEY")
+
 
 import re
 
@@ -54,39 +64,48 @@ def format_response_for_browser(response_text):
     return "\n".join(html_output)
 
 
-def embed_and_search(docs, question):
-    # 1. Set up the embedding model
-    embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
-    # Settings.llm = Ollama(model="llama3")
-    Settings.embed_model = embed_model
-    llm = llm = Ollama(model="gemma:2b", request_timeout=300, temperature=0.3, streaming=False)
 
-    Settings.llm = llm
+
+
+
+def embed_and_search(docs, question, repo_url,branch):
+    # ✅ Unique repo identifier (hash) and Chroma DB path
+    unique_repo_key = f"{repo_url}@{branch}"
+    repo_id = hashlib.sha256(unique_repo_key.encode()).hexdigest()
+
+    chroma_path = f"./chroma_db/{repo_id}"
+    collection_name = f"repo_{repo_id}"
+
+    # ✅ Init Chroma client
+    db = chromadb.PersistentClient(path=chroma_path)
+    chroma_collection = db.get_or_create_collection(name=collection_name)
+
+    # ✅ Set up vector store with Chroma
+    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
+
+    # ✅ Set global config (only once)
+    Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
+    Settings.llm = Ollama(model="gemma:2b", request_timeout=300, temperature=0.3, streaming=False)
     Settings.text_splitter = SentenceSplitter(chunk_size=512, chunk_overlap=50)
 
-    # 2. Service context
-    # service_context = ServiceContext.from_defaults(
-    #     embed_model=embed_model,
-    #     text_splitter=SentenceSplitter(chunk_size=512, chunk_overlap=50),
-    # )
+    # ✅ Check if index is already in Chroma (very basic heuristic)
+    if len(chroma_collection.get()["ids"]) == 0:
+        print("🚀 Creating and storing new index...")
+        index = VectorStoreIndex.from_documents(docs, storage_context=storage_context)
+    else:
+        print("✅ Loading index from Chroma...")
+        index = VectorStoreIndex.from_vector_store(vector_store, storage_context=storage_context)
 
-    # 3. Create the index
-    index = VectorStoreIndex.from_documents(docs)
-    
-
-    # 4. Create a retriever-based query engine
+    # ✅ Query setup
     retriever = index.as_retriever(similarity_top_k=4)
-    concise_question = f"{question.strip()} Explain neatly in a length that is suitable for the question, so that a beginner can understand. The main goal is making a user ready to work with this repo. Use the necessary files to answer this. If it is about the entire repository, refer all the files in the repository and answer. If asked for workflow or any similar question explain with the help of all files, including all the functionalities and features and how they work together. Include code snippets if necessary. If you cannot find any relevant information in the context, say 'context does not provide enough information to answer this question'."
-
     query_engine = RetrieverQueryEngine.from_args(retriever)
-    print(f"Concise question: {concise_question}")
 
-    # 5. Query the index
+    # ✅ Smart prompt
+    concise_question = f"""{question.strip()} Explain neatly in a length that is suitable for the question, so that a beginner can understand. The main goal is making a user ready to work with this repo. Use the necessary files to answer this. If it is about the entire repository, refer all the files in the repository and answer. If asked for workflow or any similar question explain with the help of all files, including all the functionalities and features and how they work together. Include code snippets if necessary. If you cannot find any relevant information in the context, say 'context does not provide enough information to answer this question'."""
+
     response = query_engine.query(concise_question)
-    formatted_response = format_response_for_browser(str(response))
-
     return str(response)
-
 
 def synthesize_project_summary(docs):
     """

@@ -64,7 +64,7 @@ const MainPage = () => {
       <div className="mainpage-content-outer">
         <div className="mainpage-header">
           <h1>Welcome to Codex - Your Repomate</h1>
-          <p>Choose your development tool to get started</p>
+          <p>If you are new to repository, get to know it before contributing!</p>
         </div>
 
         <div className="mainpage-content">
@@ -81,14 +81,14 @@ const MainPage = () => {
                 <Code size={40} />
               </div>
               <h3>Codebase Q & A</h3>
-              <p>Analyze and optimize your code for better performance</p>
+              <p>Learn more about the repository by asking questions</p>
             </div>
             <div className="circle-button" onClick={handleFiletoFile}>
               <div className="circle-icon">
                 <Settings size={40} />
               </div>
               <h3>File to File Summary</h3>
-              <p>Manage and organize your development projects</p>
+              <p>Get a clear pdf containing summaries of each file!</p>
             </div>
           </div>
         </div>

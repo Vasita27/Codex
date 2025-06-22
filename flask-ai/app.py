@@ -74,7 +74,7 @@ def ask():
         if not chunks:
             return jsonify({"error": "No code chunks found in the repository"}), 404
 
-        answer = embed_and_search(chunks, question)
+        answer = embed_and_search(chunks, question,repo_url, branch)
         return jsonify({"answer": answer})
 
     except Exception as e:

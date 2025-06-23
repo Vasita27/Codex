@@ -11,3 +11,7 @@ google-generativeai
 huggingface-hub
 llama_index.readers.github
 gunicorn
+llama_index.core 
+llama_index.vector_stores.chroma
+llama_index.llms.ollama
+llama_index.llms.openai

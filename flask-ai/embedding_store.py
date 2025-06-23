@@ -10,6 +10,11 @@ from datetime import datetime
 import hashlib, json
 from llama_index.core.storage.docstore.simple_docstore import SimpleDocumentStore
 from llama_index.core.storage.index_store.simple_index_store import SimpleIndexStore
+import requests
+from llama_index.core.schema import Document
+from dotenv import load_dotenv
+load_dotenv()
+# Deserialize back to Document objects
 
 
 
@@ -22,6 +27,12 @@ import os
 
 # load_dotenv()
 # api_key = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+def is_summary_or_workflow_question(q):
+    q = q.lower()
+    keywords = ["summary", "overview", "workflow", "how it works", "explain repo"]
+    return any(k in q for k in keywords)
 
 
 import re
@@ -63,11 +74,6 @@ def format_response_for_browser(response_text):
 
     return "\n".join(html_output)
 
-
-
-
-
-
 def embed_and_search(docs, question, repo_url,branch):
     # ✅ Unique repo identifier (hash) and Chroma DB path
     unique_repo_key = f"{repo_url}@{branch}"
@@ -87,22 +93,76 @@ def embed_and_search(docs, question, repo_url,branch):
     # ✅ Set global config (only once)
     Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
     Settings.llm = Ollama(model="gemma:2b", request_timeout=300, temperature=0.3, streaming=False)
+
     Settings.text_splitter = SentenceSplitter(chunk_size=512, chunk_overlap=50)
 
     # ✅ Check if index is already in Chroma (very basic heuristic)
     if len(chroma_collection.get()["ids"]) == 0:
         print("🚀 Creating and storing new index...")
+        
         index = VectorStoreIndex.from_documents(docs, storage_context=storage_context)
     else:
         print("✅ Loading index from Chroma...")
         index = VectorStoreIndex.from_vector_store(vector_store, storage_context=storage_context)
 
     # ✅ Query setup
-    retriever = index.as_retriever(similarity_top_k=4)
+    # Pseudocode
+    if is_summary_or_workflow_question(question):
+        retriever = index.as_retriever(similarity_top_k=20)
+    else:
+        retriever = index.as_retriever(similarity_top_k=4)
+    retrieved_nodes = retriever.retrieve(question)
+
+# DEBUG: Print or log the retrieved document texts
+    context_parts = []
+    print("\n📄 Retrieved Documents:")
+    for i, node in enumerate(retrieved_nodes, 1):
+        file_path = node.metadata.get("file_path", "Unknown file path")
+        print(f"\n--- Document {i} ---")
+        print(f"📄 File: {file_path}")
+        print(node.text[:1000])  # Preview
+        context_parts.append(f"File: {file_path}\n{node.text}")
+
+    context = "\n\n".join(context_parts)
+
+    # 2. Prepare the prompt
+    prompt = f"""Use the context below to answer the question clearly. If asked for a code file, give back the exact code with explanation.
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+    """
+
+    # 3. POST to Gemini API
+    
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": prompt}]
+            }
+        ]
+    }
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    # 4. Send request
+    response = requests.post(GEMINI_URL, headers=headers, json=payload)
+    result = response.json()
+    gemini_output = result['candidates'][0]['content']['parts'][0]['text']
+    print("\n🔍 Gemini Response:")
+    print(gemini_output)
+    return str(gemini_output)
+
+
     query_engine = RetrieverQueryEngine.from_args(retriever)
 
     # ✅ Smart prompt
-    concise_question = f"""{question.strip()} Explain neatly in a length that is suitable for the question, so that a beginner can understand. The main goal is making a user ready to work with this repo. Use the necessary files to answer this. If it is about the entire repository, refer all the files in the repository and answer. If asked for workflow or any similar question explain with the help of all files, including all the functionalities and features and how they work together. Include code snippets if necessary. If you cannot find any relevant information in the context, say 'context does not provide enough information to answer this question'."""
+    concise_question = f"""{question.strip()} Explain neatly in a length that is suitable for the question, so that a beginner can understand. Dont make it too big. Use the given context to answer this. If asked for dependencies or libraries refer the imports in all the files provided'."""
 
     response = query_engine.query(concise_question)
     return str(response)

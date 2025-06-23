@@ -1,6 +1,11 @@
 import os
 from llama_index.readers.github import GithubRepositoryReader
 from llama_index.readers.github import GithubClient
+from pymongo import MongoClient
+from llama_index.core.schema import Document
+from datetime import datetime
+import json
+
 import requests
 from urllib.parse import urlparse
 import base64
@@ -41,42 +46,93 @@ def get_github_branches(repo_url: str) -> List[Dict[str, str]]:
         print(f"Error fetching branches: {str(e)}")
         return []
 
+mongo_client = MongoClient(os.getenv("MONGO_URI"))
+db = mongo_client["repo_db"]
+collection = db["parsed_repos"]
+
+def clean_document(doc: Document) -> Document | None:
+    content = doc.text.strip()
+    file_path = doc.metadata.get("file_path", "").replace("\\", "/")
+    file_name = doc.metadata.get("file_name", "")
+
+    if not content:
+        return None  # skip empty files
+
+    return Document(
+        text=content,
+        metadata={
+            "file_name": file_name,
+            "file_path": file_path,
+        }
+    )
+
 def parse_github_repo(repo_url: str, branch: str = "main") -> Any:
-    """Parse a GitHub repository from the given URL and branch."""
+    """Parse a GitHub repository only if it's not already parsed and stored."""
     try:
-        # Extract owner and repo name
+        # Check if already exists in MongoDB
+        existing = collection.find_one({"repo_url": repo_url, "branch": branch})
+        if existing:
+            print("🔁 Repo already parsed. Fetching from MongoDB.")
+            documents = [Document(**d) for d in json.loads(existing["docs"])]
+            print(documents)
+            return documents  # Deserialize if needed
+
+        # Otherwise, parse the repo
         parts = repo_url.strip('/').split('/')
         owner = parts[-2]
         repo = parts[-1]
 
-        # GitHub personal access token
         github_token = os.getenv("GITHUB_TOKEN")
         github_client = GithubClient(github_token)
-
 
         reader = GithubRepositoryReader(
             github_client=github_client,
             owner=owner,
             repo=repo,
             filter_directories=(
-                # Exclude common irrelevant folders
-                [".vscode", "__pycache__", "node_modules", ".github", "dist", "build", "coverage"],
+                [
+                    ".vscode", "__pycache__", "node_modules", ".github", "dist",
+                    "build", "coverage", ".husky", ".turbo", ".cache"
+                ],
                 GithubRepositoryReader.FilterType.EXCLUDE,
             ),
             filter_file_extensions=(
-                # Exclude non-code files (keep only relevant ones)
-                [".md", ".json", ".lock", ".log", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".svg"],
+                [
+                    ".lock", ".log", ".png", ".jpg", ".jpeg", ".gif", ".ico",
+                    ".pdf", ".svg", ".zip", ".tar", ".tgz", ".gz", ".7z", ".exe",
+                    ".ttf", ".woff", ".woff2", ".mp4", ".mp3"
+                ],
                 GithubRepositoryReader.FilterType.EXCLUDE,
             ),
         )
 
-        # Load repo contents from the specified branch
-        print(f"Loading repository data from branch: {branch}")
+
+        print(f"📦 Parsing GitHub repo from branch: {branch}")
         docs = reader.load_data(branch=branch)
+        # cleaned_docs = [d for d in (clean_document(doc) for doc in docs) if d]
+        # Save to MongoDB
+        docs = [
+            doc for doc in docs
+            if doc.text.strip() and "node_modules" not in doc.metadata.get("file_path", "")
+            and not doc.metadata.get("file_name", "").startswith("package-lock")
+            
+        ]
+        print("📄 Parsed Files:")
+        for doc in docs:
+            print(" -", doc.metadata.get("file_path", "Unknown path"))
+        collection.insert_one({
+            "repo_url": repo_url,
+            "branch": branch,
+            "docs": json.dumps([doc.to_dict() for doc in docs]),  # Serialize
+            "last_updated": datetime.utcnow().isoformat()
+        })
+
         return docs
+
     except Exception as e:
-        print(f"Error parsing repository: {str(e)}")
-        raise
+        print(f"❌ Error parsing repository: {str(e)}")
+        return []
+        
 def get_file_metadata(repo_url: str, branch: str = "main") -> Any:
     """Get file metadata from the given repository URL and branch."""
     docs = parse_github_repo(repo_url, branch)
@@ -153,17 +209,19 @@ class GitHubParser:
             or "/coverage/" in norm_path
             or norm_path.startswith("__pycache__/")
             or "/__pycache__/" in norm_path
+            or norm_path.startswith("chroma_db/")
+            or "/chroma_db/" in norm_path
         ):
             return True
         if ext in self.skip_extensions:
             return True
         if fname in self.skip_filenames:
             return True
-        # Skip readme or similar
-        if fname.lower().startswith("readme"):
+        # Skip only README.md (case-insensitive)
+        if fname.lower() == "readme.md":
             return True
         return False
-
+    
     def get_repo_data(self):
         repo_resp = requests.get(self.api_base, headers=self._get_headers())
         if repo_resp.status_code != 200:

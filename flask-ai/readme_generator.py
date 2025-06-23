@@ -1,9 +1,11 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
 import json
-from typing import Dict, List, Any
+import re
+import time
+from dotenv import load_dotenv
 import google.generativeai as genai
+
+load_dotenv()
 
 class ReadmeGenerator:
     def __init__(self):
@@ -16,9 +18,10 @@ class ReadmeGenerator:
         from github_parser import GitHubParser
         parser = GitHubParser(github_url)
         repo_data = parser.get_repo_data()
+        print("Repository parsed. Starting file summarization...")
         return self.generate_readme_content(repo_data)
 
-    def analyze_repo_structure(self, repo_data: Dict) -> Dict[str, Any]:
+    def analyze_repo_structure(self, repo_data):
         files = repo_data.get('files', {})
         categorized = {
             'config_files': [],
@@ -30,13 +33,11 @@ class ReadmeGenerator:
             'assets': []
         }
         for file_path, file_info in files.items():
-            # SKIP node_modules files
             if "node_modules/" in file_path.replace("\\", "/"):
                 continue
             if file_info.get('type') != 'file':
                 continue
             ext = os.path.splitext(file_path)[-1].lower()
-            # You can tune these lists as needed
             if ext in ['.json', '.yml', '.yaml', '.env', '.lock', '.conf', '.ini'] or 'config' in file_path.lower():
                 categorized['config_files'].append(file_path)
             elif ext in ['.js', '.jsx', '.ts', '.tsx']:
@@ -53,8 +54,8 @@ class ReadmeGenerator:
                 categorized['test_files'].append(file_path)
         return categorized
 
-    def extract_dependencies(self, files: Dict) -> Dict[str, List[str]]:
-        dependencies = {'npm': [], 'pip': [], 'other': []}
+    def extract_dependencies(self, files):
+        dependencies = {'npm': [], 'pip': []}
         package_json_files = [f for f in files.keys() if f.endswith('package.json')]
         for file_path in package_json_files:
             try:
@@ -78,184 +79,202 @@ class ReadmeGenerator:
                 print(f"Error parsing {file_path}: {e}")
         return dependencies
 
-    def generate_readme_content(self, repo_data: Dict) -> str:
-        categorized_files = self.analyze_repo_structure(repo_data)
+    def should_skip_summary(self, file_path):
+        fname = os.path.basename(file_path).lower()
+        if fname == "package.json":
+            return True
+        if fname.startswith("setup"):
+            return True
+        if fname.startswith("test") or fname.endswith(".test.js") or fname.endswith(".spec.js") or fname.endswith(".test.ts") or fname.endswith(".spec.ts"):
+            return True
+        if fname == "vite.config.js":
+            return True
+        if fname == "eslint.config.js":
+            return True
+        if "tailwind" in fname:
+            return True
+        if "postcss" in fname:
+            return True
+        if "autoprefixer" in fname:
+            return True
+        return False
+
+    def extract_imports_or_libs(self, content, file_path):
+        imports = set()
+        ext = os.path.splitext(file_path)[-1].lower()
+        if ext in (".js", ".jsx", ".ts", ".tsx"):
+            for match in re.findall(r'import\s+(?:[^"\']+\s+from\s+)?[\'"]([^\'"]+)[\'"]', content):
+                imports.add(match.split('/')[0])
+            for match in re.findall(r'require\([\'"]([^\'"]+)[\'"]\)', content):
+                imports.add(match.split('/')[0])
+        elif ext == ".py":
+            for match in re.findall(r'^\s*import\s+([a-zA-Z0-9_\.]+)', content, re.MULTILINE):
+                imports.add(match.split('.')[0])
+            for match in re.findall(r'^\s*from\s+([a-zA-Z0-9_\.]+)\s+import', content, re.MULTILINE):
+                imports.add(match.split('.')[0])
+        elif ext in (".html", ".htm"):
+            for match in re.findall(r'<script.*?src="([^"]+)"', content):
+                imports.add(match.split('/')[0])
+            for match in re.findall(r'<link.*?href="([^"]+)"', content):
+                imports.add(match.split('/')[0])
+        elif ext in (".yml", ".yaml"):
+            for match in re.findall(r'image:\s*([^\s]+)', content):
+                imports.add(match.split('/')[0])
+        return [i for i in imports if i]
+
+    def generate_main_feature_summaries(self, repo_data):
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        files = repo_data.get('files', {})
+        summaries = []
+
+        print("🧠 Summarizing files using Gemini...")
+
+        def summarize_file(file_path, file_info):
+            try:
+                if not isinstance(file_info, dict) or file_info.get('type') != 'file':
+                    return None
+                if self.should_skip_summary(file_path):
+                    return None
+
+                ext = os.path.splitext(file_path)[-1].lower()
+                if ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.pdf', '.doc', '.docx']:
+                    return None
+
+                content = file_info.get('content', '')
+                if not content or len(content) < 20:
+                    return None
+
+                libs = self.extract_imports_or_libs(content, file_path)
+                libs_str = ", ".join(sorted(libs)) if libs else ""
+                prompt = (
+                    "Provide a clear, high-level summary in 2–3 short sentences describing the main feature or purpose of this code file for a project README. "
+                    "Focus on what this file enables for users or the application overall. "
+                    "Do NOT include implementation details or mention the file name or path. "
+                    "After the summary, add in square brackets a comma-separated list of the key technologies, libraries, or imports used in this file, as detected from the code itself. "
+                    "Format: <summary> [Imports/Libraries: ...].\n"
+                    f"File: {file_path}\n"
+                    f"---\n{content[:3000]}"
+                )
+
+                retries = 3
+                delay = 5
+
+                for attempt in range(retries):
+                    try:
+                        response = self.model.generate_content(prompt)
+                        text = response.text.strip().replace("\n", " ")
+                        return f"- **{file_path}**: {text}" if text else None
+                    except Exception as e:
+                        if "429" in str(e) or "rate limit" in str(e).lower():
+                            wait = delay * (attempt + 1)
+                            print(f"⚠️ Rate limited on {file_path}, retrying in {wait}s...")
+                            time.sleep(wait)
+                        else:
+                            print(f"❌ Error summarizing {file_path}: {e}")
+                            return None
+                return None
+            except Exception as e:
+                print(f"❌ Unexpected error on {file_path}: {e}")
+                return None
+
+        # Use thread pool for concurrency (safe for I/O-bound ops like API calls)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_file = {
+                executor.submit(summarize_file, path, info): path
+                for path, info in files.items()
+            }
+            for future in as_completed(future_to_file):
+                result = future.result()
+                if result:
+                    summaries.append(result)
+
+        print("\n✅ Summarization complete. Top 5 file summaries:")
+        for s in summaries[:5]:
+            print(s)
+
+        return "\n".join(summaries)
+
+
+    def _generate_project_tree(self, repo_data):
+        files = repo_data.get('files', {})
+        tree = {}
+        for path in files.keys():
+            if "node_modules/" in path.replace("\\", "/"):
+                continue
+            parts = path.replace("\\", "/").split('/')
+            curr = tree
+            for part in parts:
+                curr = curr.setdefault(part, {})
+        def render(d, prefix=''):
+            lines = []
+            keys = list(d.keys())
+            for i, k in enumerate(sorted(keys)):
+                connector = '└── ' if i == len(keys) - 1 else '├── '
+                if d[k]:
+                    lines.append(f"{prefix}{connector}{k}")
+                    extension = '    ' if i == len(keys) - 1 else '│   '
+                    lines.extend(render(d[k], prefix + extension))
+                else:
+                    lines.append(f"{prefix}{connector}{k}")
+            return lines
+        # Always print the full project structure, including a few files for each directory
+        top_level = [k for k in tree.keys()]
+        if len(top_level) == 1:
+            root = top_level[0]
+            root_tree = tree[root]
+            structure = f"{root}/\n" + "\n".join(render(root_tree))
+        else:
+            structure = "\n".join(render(tree))
+        return structure
+
+    def generate_readme_content(self, repo_data):
         dependencies = self.extract_dependencies(repo_data['files'])
-        key_files = self._get_key_file_contents(repo_data['files'], categorized_files)
+        main_feature_summaries = self.generate_main_feature_summaries(repo_data)
+        project_tree = self._generate_project_tree(repo_data)
         context = {
             'repo_name': repo_data.get('name', 'Unknown'),
             'description': repo_data.get('description', ''),
             'language': repo_data.get('language', 'Multiple'),
-            'file_structure': categorized_files,
             'dependencies': dependencies,
-            'file_count': len(repo_data.get('files', {})),
-            'key_files': key_files
+            'main_feature_summaries': main_feature_summaries,
+            'project_tree': project_tree
         }
+        dependencies_info = "\n".join([
+            f"**{dep_type.upper()}:** {', '.join(deps[:10])}" +
+            (f" (+{len(deps)-10} more)" if len(deps) > 10 else "")
+            for dep_type, deps in context['dependencies'].items() if deps
+        ])
 
-        # Print all key file names (but do not include their contents anywhere)
-        print("\n========= KEY FILES ANALYZED =========")
-        for file_path in key_files:
-            print(file_path)
-        print("======================================\n")
+        prompt =  f"""
+Write a professional, modern, and user-focused README.md for the repository **{context['repo_name']}**.
 
-        prompt = self._create_readme_prompt(context)
+- **Description:** In 4-5 sentences, describe what the project is, its main purpose, and what makes it valuable. Briefly mention the main features (by name only, in running text), and ensure all features are included.
+- Directly after description in new line add at least 4–5 relevant badges (such as main language or key technology badges) based on the detected dependencies and project context. Format them with markdown and ensure they look visually appealing and are relevant to the stack.
+- **Features:** List the major features (based on all file summaries), each with a clear, concise (1–2 lines) description focused on the user experience. Do NOT mention or reference file paths or file/component names.
+- **Technology Stack:** List the main technologies and frameworks, using the dependencies info.
+- **Project Structure:** Present the full, neatly formatted project tree below as a code block. Do NOT truncate or summarize with ellipses—always show several files under each folder and show the entire structure that was generated.
+- **Usage:** For each main feature, write a short, user-oriented flow (1–2 lines) on how a typical user would use or experience that feature. Do NOT include code, file paths, or component names. Flows should read naturally.
+- **Installation:** Provide setup steps using the dependencies info.
+- **Contributing & License:** Add standard sections briefly explaining how to contribute and the license type, using standard templates.
+- Use clear markdown and relevant emojis.
+- Do NOT speculate or add empty/unmentioned sections.
+- Base all content on the provided main file summaries, project tree, and dependencies info.
+
+**Context:**
+Main file summaries:
+{context['main_feature_summaries']}
+
+Project tree:
+{context['project_tree']}
+
+Dependencies info:
+{dependencies_info}
+"""
         try:
             response = self.model.generate_content(prompt)
             print("Gemini AI generated README.")
             return response.text
         except Exception as e:
             print("Gemini AI error:", e)
-            return self._generate_fallback_readme(context)
-
-    def _get_key_file_contents(self, files: Dict, categorized: Dict) -> Dict:
-        key_contents = {}
-        max_length = 3000
-
-        # Always include package.json if present (anywhere in the repo, but not in node_modules)
-        for fp in files:
-            if "node_modules/" in fp.replace("\\", "/"):
-                continue
-            if fp.endswith('package.json'):
-                content = files[fp].get('content', '')
-                if content:
-                    key_contents[fp] = content[:max_length] + ("\n... (truncated)" if len(content) > max_length else "")
-                break  # only the first package.json
-
-        # Include all .js, .jsx, .ts, .tsx, .py, .txt files (avoid duplicates, skip node_modules)
-        for fp, finfo in files.items():
-            if "node_modules/" in fp.replace("\\", "/"):
-                continue
-            ext = os.path.splitext(fp)[-1].lower()
-            if ext in {'.js', '.jsx', '.ts', '.tsx', '.py', '.txt'} and fp not in key_contents:
-                content = finfo.get('content', '')
-                if content:
-                    key_contents[fp] = content[:max_length] + ("\n... (truncated)" if len(content) > max_length else "")
-
-        # Include README files (any .md with 'readme' in name, case-insensitive, skip node_modules)
-        for fp, finfo in files.items():
-            if "node_modules/" in fp.replace("\\", "/"):
-                continue
-            lower_fp = fp.lower()
-            if (lower_fp.endswith('readme.md') or 'readme' in lower_fp) and fp not in key_contents:
-                content = finfo.get('content', '')
-                if content:
-                    key_contents[fp] = content[:max_length] + ("\n... (truncated)" if len(content) > max_length else "")
-
-        return key_contents
-
-    def _create_readme_prompt(self, context: Dict) -> str:
-        file_structure = "\n".join([
-            f"**{category.replace('_', ' ').title()}:** {', '.join(files[:5])}" +
-            (f" (+{len(files)-5} more)" if len(files) > 5 else "")
-            for category, files in context['file_structure'].items() if files
-        ])
-        dependencies_info = "\n".join([
-            f"**{dep_type.upper()}:** {', '.join(deps[:10])}" +
-            (f" (+{len(deps)-10} more)" if len(deps) > 10 else "")
-            for dep_type, deps in context['dependencies'].items() if deps
-        ])
-        key_files_info = "\n".join([
-            f"**{file_path}:**\n```\n{content[:500]}...\n```"
-            for file_path, content in context['key_files'].items()
-        ])
-        print('--')
-        print(key_files_info)
-        prompt = f"""
-Generate a comprehensive and professional README.md for a GitHub repository with the following information:
-
-**File Structure:**
-{file_structure}
-
-**Dependencies:**
-{dependencies_info}
-
-Please generate a README.md that includes:
-1. A compelling project title, badges and description
-2. A watch demo link or Live website link option
-3. Features list based on the code analysis
-4. Technology stack
-5. Project structure explanation
-6. Usage examples
-7. Installation instructions based on the dependencies
-8. Contributing guidelines
-9. License information
-
-Make it professional, engaging, and developer-friendly. Use proper markdown formatting with emojis, badges, and clear sections. Infer the project's purpose and functionality from the code structure and dependencies.
-"""
-        return prompt
-    
-    def _generate_fallback_readme(self, context: Dict) -> str:
-        """Generate a basic README if AI fails"""
-        
-        # Determine project type based on files
-        project_type = "Application"
-        if any('react' in dep.lower() for deps in context['dependencies'].values() for dep in deps):
-            project_type = "React Application"
-        elif any('flask' in dep.lower() for deps in context['dependencies'].values() for dep in deps):
-            project_type = "Flask Application"
-        elif any('express' in dep.lower() for deps in context['dependencies'].values() for dep in deps):
-            project_type = "Express.js Application"
-        
-        readme_content = f"""# {context['repo_name']}
-
-## 📝 Description
-{context['description'] or f"A {project_type} built with {context['language']}"}
-
-## 🚀 Features
-- Modern {context['language']} application
-- Well-structured codebase with {context['file_count']} files
-- Professional development setup
-
-## 🛠️ Installation
-
-### Prerequisites
-- Node.js (if using npm dependencies)
-- Python (if using pip dependencies)
-
-### Setup
-1. Clone the repository
-```bash
-git clone <repository-url>
-cd {context['repo_name']}
-```
-
-2. Install dependencies
-"""
-        
-        if context['dependencies']['npm']:
-            readme_content += """
-```bash
-npm install
-```
-"""
-        
-        if context['dependencies']['pip']:
-            readme_content += """
-```bash
-pip install -r requirements.txt
-```
-"""
-        
-        readme_content += """
-## 📁 Project Structure
-```
-"""
-        
-        for category, files in context['file_structure'].items():
-            if files:
-                readme_content += f"{category.replace('_', ' ').title()}: {len(files)} files\n"
-        
-        readme_content += """```
-
-## 🤝 Contributing
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## 📄 License
-This project is licensed under the MIT License.
-"""
-        
-        return readme_content
+            return "# Error generating README: " + str(e)

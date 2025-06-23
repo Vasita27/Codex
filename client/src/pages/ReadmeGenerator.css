@@ -246,6 +246,24 @@ button:disabled {
   text-align: left;
 }
 
+.markdown-preview {
+  background: var(--navy-1);      /* Match output .preview-container background */
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  padding: 18px 18px 18px 0px;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 340px;
+  min-height: 140px;
+  font-family: "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  color: #f1f5fd;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
 .spinner {
   display: inline-block;
   width: 16px;
@@ -307,7 +325,8 @@ button:disabled {
     max-height: 220px;
   }
 
-  .preview {
+  .preview,
+  .markdown-preview {
     font-size: 12px;
     padding: 7px 7px 7px 0px;
     max-height: 180px;
@@ -346,7 +365,8 @@ button:disabled {
     max-height: 100px;
   }
 
-  .preview {
+  .preview,
+  .markdown-preview {
     font-size: 10px;
     padding: 4px 3px 4px 0px;
     max-height: 90px;

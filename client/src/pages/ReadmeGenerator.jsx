@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import Header from "./Header";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./ReadmeGenerator.css";
 
 const ReadmeGenerator = () => {
@@ -9,6 +11,7 @@ const ReadmeGenerator = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [step, setStep] = useState("input");
+  const [showPreview, setShowPreview] = useState(false);
 
   const isValidGitHubUrl = (url) => {
     const githubUrlRegex =
@@ -85,6 +88,11 @@ const ReadmeGenerator = () => {
     setError("");
     setSuccess("");
     setStep("input");
+    setShowPreview(false);
+  };
+
+  const handlePreview = () => {
+    setShowPreview((prev) => !prev);
   };
 
   return (
@@ -144,9 +152,20 @@ const ReadmeGenerator = () => {
               <button onClick={copyToClipboard}>Copy</button>
               <button onClick={downloadReadme}>Download</button>
               <button onClick={resetGenerator}>New README</button>
+              <button onClick={handlePreview}>
+                {showPreview ? "Hide Preview" : "Preview"}
+              </button>
             </div>
             <div className="preview-container">
-              <pre className="preview">{readmeContent}</pre>
+              {showPreview ? (
+                <div className="markdown-preview">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {readmeContent}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <pre className="preview">{readmeContent}</pre>
+              )}
             </div>
           </div>
         )}

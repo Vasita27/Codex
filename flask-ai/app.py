@@ -187,7 +187,7 @@ def generate_file_summary():
 #         return jsonify({"graph_url": final_graph_path})
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
-
+port = int(os.environ.get("PORT", 5000))
 if __name__ == '__main__':
     required_vars = ['GITHUB_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
@@ -205,4 +205,4 @@ if __name__ == '__main__':
         exit(1)
 
     logger.info("Starting Flask server on port 5001...")
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=True)

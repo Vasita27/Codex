@@ -107,10 +107,11 @@ def embed_and_search(docs, question, repo_url,branch):
 
     # ✅ Query setup
     # Pseudocode
+  
     if is_summary_or_workflow_question(question):
         retriever = index.as_retriever(similarity_top_k=20)
     else:
-        retriever = index.as_retriever(similarity_top_k=4)
+        retriever = index.as_retriever(similarity_top_k=4) 
     retrieved_nodes = retriever.retrieve(question)
 
 # DEBUG: Print or log the retrieved document texts

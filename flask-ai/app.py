@@ -4,13 +4,13 @@ from github_parser import parse_github_repo, get_github_branches,get_file_metada
 from embedding_store import embed_and_search
 from readme_generator import ReadmeGenerator
 from file_summarizer import summarize_repo_as_string, create_pdf_from_summary
-from dependency_graph import generate_dependency_graph
+# from dependency_graph import generate_dependency_graph
 import os
 import logging
 import tempfile
 from urllib.parse import urlparse
-from pyvis.network import Network
-import networkx as nx
+# from pyvis.network import Network
+# import networkx as nx
 
 try:
     from dotenv import load_dotenv
@@ -172,21 +172,21 @@ def generate_file_summary():
         }), 500
 
 
-@app.route("/generate-graph", methods=["POST"])
-def generate_graph():
-    data = request.json
-    repo_url = data.get("repo_url")
-    branch = data.get("branch", "master")
+# @app.route("/generate-graph", methods=["POST"])
+# def generate_graph():
+#     data = request.json
+#     repo_url = data.get("repo_url")
+#     branch = data.get("branch", "master")
 
-    try:
-        file_data = get_file_metadata(repo_url, branch)
-        graph_path = generate_dependency_graph(file_data, "repo_graph.html")
-        print("Reached here")
-        final_graph_path = "http://localhost:5001/static/repo_graph.html"
-  # Adjust this if your server runs on a different host/port
-        return jsonify({"graph_url": final_graph_path})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+#     try:
+#         file_data = get_file_metadata(repo_url, branch)
+#         graph_path = generate_dependency_graph(file_data, "repo_graph.html")
+#         print("Reached here")
+#         final_graph_path = "http://localhost:5001/static/repo_graph.html"
+#   # Adjust this if your server runs on a different host/port
+#         return jsonify({"graph_url": final_graph_path})
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     required_vars = ['GITHUB_TOKEN']

@@ -4,9 +4,9 @@ from fpdf import FPDF
 from dotenv import load_dotenv
 from github_parser import GitHubParser
 import google.generativeai as genai
-
+import requests
 load_dotenv()
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not found in environment or .env file.")
@@ -27,9 +27,33 @@ def gemini_flash_summarize(text, file_path):
     max_retries = 2
     for attempt in range(max_retries):
         try:
-            response = model.generate_content(prompt)
-            summary = response.text.strip()
-            return summary
+            GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+            GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+            payload = {
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": prompt}]
+                    }
+                ]
+            }
+
+            headers = {
+                "Content-Type": "application/json"
+            }
+
+            response = requests.post(GEMINI_URL, headers=headers, json=payload)
+            result = response.json()
+            try:
+                print(result)
+                
+                summary = result['candidates'][0]['content']['parts'][0]['text'].strip()
+                print(summary)
+            except Exception as e:
+                print(f"❌ Error parsing Gemini response: {e}")
+                summary = ""
+            return summary if summary else text[:300]  # Return first 300 chars if no summary
+
         except Exception as e:
             err_msg = str(e)
             if '429' in err_msg or "quota" in err_msg.lower() or "rate limit" in err_msg.lower():
@@ -47,46 +71,51 @@ def summarize_repo_as_string(repo_url):
     repo_data = parser.get_repo_data()
     files = repo_data['files']
 
-    # Filter files to only important types
     allowed_exts = ('.py', '.js', '.ts', '.jsx', '.tsx', '.json', '.md')
     filtered_files = {
         path: info for path, info in files.items()
-        if path.endswith(allowed_exts)
+        if path.endswith(allowed_exts) and info.get('content', '').strip()
     }
 
-    summaries = []
     total = len(filtered_files)
+    print(f"🧠 Starting summarization of {total} files...")
 
-    for i, (file_path, info) in enumerate(filtered_files.items(), 1):
-        content = info.get('content', '')
-        if not content.strip():
-            continue
+    summaries = []
 
-        print(f"[{i}/{total}] Summarizing: {file_path} ...")
-        summary = None
-
-        # Retry if rate limit hit
-        for attempt in range(2):
+    def summarize_file(file_path, content):
+        for attempt in range(3):
             try:
-                summary = gemini_flash_summarize(content, file_path)
-                break
+                print(f"Summarizing: {file_path} (Attempt {attempt+1})")
+                return file_path, gemini_flash_summarize(content, file_path)
             except Exception as e:
-                if "rate limit" in str(e).lower() or "quota" in str(e).lower() or "429" in str(e):
-                    wait = 60 * (attempt + 1)
-                    print(f"Rate limit hit. Retrying in {wait} sec... (Attempt {attempt+1}/2)")
+                if "429" in str(e) or "rate limit" in str(e).lower() or "quota" in str(e).lower():
+                    wait = 10 * (attempt + 1)
+                    print(f"⚠️ Rate limit for {file_path}, retrying in {wait}s...")
                     time.sleep(wait)
                 else:
-                    print(f"Error: {e}")
+                    print(f"❌ Error summarizing {file_path}: {e}")
                     break
+        return file_path, None
 
-        if summary:
-            summaries.append(f"## {file_path}\n\n{summary}\n\n---\n")
-        else:
-            print(f"Skipped {file_path} due to repeated errors.")
+    # Parallel execution
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(summarize_file, path, info['content']): path
+            for path, info in filtered_files.items()
+        }
 
-        time.sleep(5)  # Be gentle to avoid quota exhaustion
+        for i, future in enumerate(as_completed(futures), 1):
+            file_path = futures[future]
+            try:
+                path, summary = future.result()
+                if summary:
+                    summaries.append(f"## {path}\n\n{summary}\n\n---\n")
+                else:
+                    print(f"Skipped {path} due to repeated errors.")
+            except Exception as e:
+                print(f"❌ Unexpected error on {file_path}: {e}")
 
-    output = "# File-to-File Summaries \n\n" + "\n".join(summaries)
+    output = "# File-to-File Summaries\n\n" + "\n".join(summaries)
     return output
 
 # The create_pdf_from_summary function from your provided code remains unchanged.

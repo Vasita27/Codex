@@ -9,5 +9,5 @@ llama-index==0.12.42
 chromadb
 google-generativeai
 huggingface-hub
+llama_index.readers.github
 gunicorn
-

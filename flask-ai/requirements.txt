@@ -9,3 +9,5 @@ llama-index
 chromadb
 google-generativeai
 huggingface-hub
+gunicorn
+

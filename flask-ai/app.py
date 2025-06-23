@@ -9,7 +9,7 @@ import os
 import logging
 import tempfile
 from urllib.parse import urlparse
-from pyvis.network import Network
+
 import networkx as nx
 
 try:

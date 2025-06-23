@@ -8,8 +8,8 @@ from pymongo import MongoClient
 from llama_index.core.vector_stores.simple import SimpleVectorStore
 from datetime import datetime
 import hashlib, json
-from llama_index.core.storage.docstore.simple_docstore import SimpleDocumentStore
-from llama_index.core.storage.index_store.simple_index_store import SimpleIndexStore
+# from llama_index.core.storage.docstore.simple_docstore import SimpleDocumentStore
+# from llama_index.core.storage.index_store.simple_index_store import SimpleIndexStore
 import requests
 from llama_index.core.schema import Document
 from dotenv import load_dotenv

@@ -9,11 +9,12 @@ function Signup() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const baseUrl = process.env.REACT_APP_BASE_URI;
   const navigate = useNavigate()
 
   const handleSignup = async () => {
     try {
-      await axios.post('http://localhost:5000/api/auth/signup', { username, email, password })
+      await axios.post(`${baseUrl}:5000/api/auth/signup`, { username, email, password })
       navigate('/')
     } catch (err) {
       alert('Signup failed')

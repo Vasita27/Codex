@@ -14,7 +14,7 @@ function Dashboard() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState('');
-  const baseUrl = process.env.REACT_APP_BASE_URI;
+  const aiUrl = process.env.REACT_APP_AI_URI;
 
   const token = localStorage.getItem('token');
 
@@ -43,7 +43,7 @@ function Dashboard() {
     setIsLoadingBranches(true);
     setError('');
     try {
-      const response = await axios.post(`${baseUrl}:5001/api/branches`, {
+      const response = await axios.post(`${aiUrl}/api/branches`, {
         repoUrl
       }, {
         headers: {
@@ -76,7 +76,7 @@ function Dashboard() {
     setIsAsking(true);
     setError('');
     try {
-      const response = await axios.post(`${baseUrl}:5001/ask`, {
+      const response = await axios.post(`${aiUrl}/ask`, {
         repoUrl,
         branch: selectedBranch,
         question

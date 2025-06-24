@@ -4,7 +4,7 @@ services:
   flask-ai:
     build: ./flask-ai
     env_file:
-      - ./flask-ai/.env.
+      - ./flask-ai/.env
     restart: always
 
   server:
@@ -13,7 +13,7 @@ services:
       - flask-ai
       - mongodb
     env_file:
-      - ./server/.env.
+      - ./server/.env
     restart: always
 
   client:

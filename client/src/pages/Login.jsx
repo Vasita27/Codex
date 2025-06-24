@@ -9,10 +9,11 @@ function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
+  const baseUrl = process.env.REACT_APP_BASE_URI;
 
   const handleLogin = async () => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { username, password })
+      const res = await axios.post(`${baseUrl}:5000/api/auth/login`, { username, password })
       localStorage.setItem('token', res.data.token)
       navigate('/mainpage')
     } catch (err) {

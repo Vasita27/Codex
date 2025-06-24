@@ -17,7 +17,7 @@ Codex is a powerful web application designed to simplify and enhance your intera
 
 ## Technology Stack
 
-- **Frontend:** React, React Router, Axios, Lucide-React, React Markdown, Remark-GFM, CSS
+- **Frontend:** React, React Router, React Markdown, CSS
 - **Backend:** Flask, Python,  Llama, ChromaDB, PyMongo,  Google Generative AI,  Node.js, Express.js, Mongoose, MongoDB
 
 

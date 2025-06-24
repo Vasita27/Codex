@@ -8,15 +8,15 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: isDev
       ? {
-          host: true,
+          host: '0.0.0.0',
           port: 3000,
           proxy: {
             '/api/auth': {
-              target: 'http://server:5000',
+              target: 'http://localhost:5000',
               changeOrigin: true,
             },
             '/api': {
-              target: 'http://flask-ai:5001',
+              target: 'http://localhost:5001',
               changeOrigin: true,
             },
           },

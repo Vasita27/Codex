@@ -3,27 +3,23 @@ version: '3.8'
 services:
   flask-ai:
     build: ./flask-ai
-    ports:
-      - "5001:5001"  # Optional: remove this if not testing directly
     env_file:
-      - ./flask-ai/.env.production
+      - ./flask-ai/.env.
     restart: always
 
   server:
     build: ./server
-    ports:
-      - "5000:5000"  # Optional: remove this if not testing directly
     depends_on:
       - flask-ai
       - mongodb
     env_file:
-      - ./server/.env.production
+      - ./server/.env.
     restart: always
 
   client:
     build: ./client
     ports:
-      - "80:80"  # React is served via Nginx on port 80
+      - "80:80"  # Serve React via Nginx
     depends_on:
       - server
       - flask-ai
@@ -32,8 +28,6 @@ services:
   mongodb:
     image: mongo
     container_name: mongo
-    ports:
-      - "27017:27017"  # Optional: remove or limit to localhost in production
     command: ["--quiet"]
     volumes:
       - mongo-data:/data/db

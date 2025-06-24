@@ -1,17 +1,21 @@
 # 1. Use official Node.js base image
 FROM node:18-alpine
 
-# 2. Set working directory inside the container
+# 2. Set working directory
 WORKDIR /app
 
-# 3. Copy all source files into the container
+# 3. Copy files
 COPY . .
 
-# 4. Install dependencies
-RUN npm install
+# 4. Install only production dependencies
+RUN npm ci --omit=dev
 
-# 5. Expose the port used by Express (default 5000)
+# 5. Create non-root user
+RUN addgroup app && adduser -S -G app app
+USER app
+
+# 6. Expose port
 EXPOSE 5000
 
-# 6. Start the Express server
+# 7. Run the server
 CMD ["node", "index.js"]

@@ -29,6 +29,10 @@ import os
 # api_key = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
+Settings.llm = Ollama(model="gemma:2b", request_timeout=300, temperature=0.3, streaming=False)
+
+Settings.text_splitter = SentenceSplitter(chunk_size=512, chunk_overlap=50)
 def is_summary_or_workflow_question(q):
     q = q.lower()
     keywords = ["summary", "overview", "workflow", "how it works", "explain repo"]
@@ -82,6 +86,7 @@ def embed_and_search(docs, question, repo_url,branch):
     chroma_path = f"./chroma_db/{repo_id}"
     collection_name = f"repo_{repo_id}"
 
+    print("hi")
     # ✅ Init Chroma client
     db = chromadb.PersistentClient(path=chroma_path)
     chroma_collection = db.get_or_create_collection(name=collection_name)
@@ -91,12 +96,11 @@ def embed_and_search(docs, question, repo_url,branch):
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
     # ✅ Set global config (only once)
-    Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
-    Settings.llm = Ollama(model="gemma:2b", request_timeout=300, temperature=0.3, streaming=False)
-
-    Settings.text_splitter = SentenceSplitter(chunk_size=512, chunk_overlap=50)
+    # Settings.embed_model = HuggingFaceEmbedding(model_name="all-MiniLM-L6-v2")
+    
 
     # ✅ Check if index is already in Chroma (very basic heuristic)
+    print("hello")
     if len(chroma_collection.get()["ids"]) == 0:
         print("🚀 Creating and storing new index...")
         

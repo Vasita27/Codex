@@ -11,7 +11,8 @@ import tempfile
 from urllib.parse import urlparse
 # from pyvis.network import Network
 # import networkx as nx
-
+from dotenv import load_dotenv
+load_dotenv()
 try:
     from dotenv import load_dotenv
     load_dotenv('../server/.env')
@@ -187,7 +188,7 @@ def generate_file_summary():
 #         return jsonify({"graph_url": final_graph_path})
 #     except Exception as e:
 #         return jsonify({"error": str(e)}), 500
-port = int(os.environ.get("PORT", 5000))
+port = os.getenv('PORT', 5001)
 if __name__ == '__main__':
     required_vars = ['GITHUB_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]

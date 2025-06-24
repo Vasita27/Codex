@@ -74,9 +74,9 @@ Codex is a powerful web application designed to simplify and enhance your intera
 
 ## Usage
 
-- **README Generator:**  Enter a GitHub repository URL, and Codex will generate a README file. You can then download or copy the generated README.
-- **Code Summarizer:** Provide a GitHub repository URL, select files, and Codex will generate a summary. Download the summary as a PDF.
-- **Code Querying:**  Input a repository URL, specify a branch, ask your code related question and receive relevant answers.
+- **README Generator:**  Enter a GitHub repository URL, and Codex will generate a README file. You can then download or copy or preview the generated README.
+- **Code Summarizer:** Provide a GitHub repository URL, and Codex will generate file to file summaries. Download the summaries as a PDF.
+- **Code Querying:**  Input a repository URL, select a branch, ask your code related question and receive relevant answers.
 - **User Authentication:** Create an account or log in to access the application's features.
 
 

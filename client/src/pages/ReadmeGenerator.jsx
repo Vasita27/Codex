@@ -12,7 +12,7 @@ const ReadmeGenerator = () => {
   const [success, setSuccess] = useState("");
   const [step, setStep] = useState("input");
   const [showPreview, setShowPreview] = useState(false);
-  const baseUrl = process.env.REACT_APP_BASE_URI;
+  const aiUrl = process.env.REACT_APP_AI_URI;
 
   const isValidGitHubUrl = (url) => {
     const githubUrlRegex =
@@ -34,7 +34,7 @@ const ReadmeGenerator = () => {
     setSuccess("");
     setStep("generating");
     try {
-      const response = await fetch(`${baseUrl}:5001/api/readme-gen/generate`, {
+      const response = await fetch(`${aiUrl}/api/readme-gen/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

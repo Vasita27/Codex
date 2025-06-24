@@ -11,7 +11,7 @@ const FileToFileSummarizer = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [step, setStep] = useState("input");
-  const baseUrl = process.env.REACT_APP_BASE_URI;
+  const aiUrl = process.env.REACT_APP_AI_URI;
 
   const isValidGitHubUrl = (url) => {
     const githubUrlRegex =
@@ -33,7 +33,7 @@ const FileToFileSummarizer = () => {
     setSuccess("");
     setStep("generating");
     try {
-      const response = await fetch(`${baseUrl}:5001/api/file-summary/generate-preview`, {
+      const response = await fetch(`${aiUrl}/api/file-summary/generate-preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ githubUrl: githubUrl.trim() }),
@@ -76,7 +76,7 @@ const FileToFileSummarizer = () => {
     setError("");
     setSuccess("");
     try {
-      const response = await fetch(`${baseUrl}:5001/api/file-summary/generate`, {
+      const response = await fetch(`${aiUrl}/api/file-summary/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ githubUrl: lastSummarizedUrl }),

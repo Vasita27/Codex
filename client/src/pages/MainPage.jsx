@@ -7,6 +7,7 @@ import './MainPage.css';
 const MainPage = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
+  const baseUrl = process.env.REACT_APP_BASE_URI;
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -16,9 +17,9 @@ const MainPage = () => {
           navigate('/');
           return;
         }
-        const res = await axios.get('http://localhost:5000/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(`${baseUrl}:5000/api/auth/me`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
         setUsername(res.data.username);
       } catch (err) {
         setUsername('');

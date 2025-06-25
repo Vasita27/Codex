@@ -1,4 +1,4 @@
---prefer-binary
+
 chromadb==1.0.13
 
 

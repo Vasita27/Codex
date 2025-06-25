@@ -6,20 +6,28 @@ services:
     env_file:
       - ./flask-ai/.env
     restart: always
+    depends_on:
+      - mongodb
+    # Optional resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 512M
 
   server:
     build: ./server
+    env_file:
+      - ./server/.env
     depends_on:
       - flask-ai
       - mongodb
-    env_file:
-      - ./server/.env
     restart: always
 
   client:
     build: ./client
     ports:
-      - "80:80"  # Serve React via Nginx
+      - "80:80"  # React via Nginx
     depends_on:
       - server
       - flask-ai

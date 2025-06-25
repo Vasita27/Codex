@@ -34,7 +34,7 @@ const ReadmeGenerator = () => {
     setSuccess("");
     setStep("generating");
     try {
-      const response = await fetch(`${aiUrl}/api/readme-gen/generate`, {
+      const response = await fetch(`${aiUrl}/readme-gen/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

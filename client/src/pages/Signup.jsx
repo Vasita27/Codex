@@ -9,7 +9,7 @@ function Signup() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const serverUrl = process.env.REACT_APP_SERVER_URI;
+  const serverUrl = import.meta.env.VITE_SERVER_URI;
   const navigate = useNavigate()
 
   const handleSignup = async () => {

@@ -5,6 +5,8 @@ services:
     build: ./flask-ai
     env_file:
       - ./flask-ai/.env
+    ports:
+      - "5001:5001"  
     restart: always
     depends_on:
       - mongodb
@@ -19,6 +21,8 @@ services:
     build: ./server
     env_file:
       - ./server/.env
+    ports:
+      - "5000:5000" 
     depends_on:
       - flask-ai
       - mongodb

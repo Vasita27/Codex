@@ -12,7 +12,7 @@ const ReadmeGenerator = () => {
   const [success, setSuccess] = useState("");
   const [step, setStep] = useState("input");
   const [showPreview, setShowPreview] = useState(false);
-  const aiUrl = process.env.REACT_APP_AI_URI;
+  const aiUrl = import.meta.env.VITE_AI_URI;
 
   const isValidGitHubUrl = (url) => {
     const githubUrlRegex =

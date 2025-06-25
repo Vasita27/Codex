@@ -9,7 +9,7 @@ function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
-  const serverUrl = process.env.REACT_APP_SERVER_URI;
+  const serverUrl = import.meta.env.VITE_SERVER_URI;
 
   const handleLogin = async () => {
     try {

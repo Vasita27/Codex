@@ -13,17 +13,18 @@ function Signup() {
   const navigate = useNavigate()
 
   const handleSignup = async () => {
-    console.log('Attempting signup with data:', userData);
-    console.log('API Endpoint:', `${process.env.REACT_APP_SERVER_URI}/signup`);
-    try {
-      await axios.post(`${serverUrl}/signup`, { username, email, password })
-      navigate('/')
-      console.log('Signup response:', res.data);
-    } catch (err) {
-      console.error('Signup failed:', err.response?.data || err.message);
-      alert('Signup failed')
-    }
+  const userData = { username, email, password };
+  console.log('Attempting signup with data:', userData);
+  console.log('API Endpoint:', `${serverUrl}/signup`);
+  try {
+    const res = await axios.post(`${serverUrl}/signup`, userData);
+    console.log('Signup response:', res.data);
+    navigate('/');
+  } catch (err) {
+    console.error('Signup failed:', err.response?.data || err.message);
+    alert('Signup failed');
   }
+}
 
   return (
     <div className="signup-container">

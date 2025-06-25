@@ -57,7 +57,7 @@ def get_branches():
         logger.error(f"Error fetching branches: {str(e)}")
         return jsonify({"error": f"Failed to fetch branches: {str(e)}"}), 500
 
-@app.route('/ask', methods=['POST'])
+@app.route('/api/ask', methods=['POST'])
 def ask():
     try:
         data = request.get_json()

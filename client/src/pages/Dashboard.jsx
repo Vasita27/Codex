@@ -14,7 +14,7 @@ function Dashboard() {
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState('');
-  const aiUrl = process.env.REACT_APP_AI_URI;
+  const aiUrl = import.meta.env.VITE_AI_URI;
 
   const token = localStorage.getItem('token');
 

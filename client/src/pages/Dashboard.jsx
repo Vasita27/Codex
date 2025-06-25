@@ -43,7 +43,7 @@ function Dashboard() {
     setIsLoadingBranches(true);
     setError('');
     try {
-      const response = await axios.post(`${aiUrl}/api/branches`, {
+      const response = await axios.post(`${aiUrl}/branches`, {
         repoUrl
       }, {
         headers: {

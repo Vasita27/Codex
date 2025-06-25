@@ -17,7 +17,7 @@ const MainPage = () => {
           navigate('/');
           return;
         }
-        const res = await axios.get(`${serverUrl}/api/auth/me`, {
+        const res = await axios.get(`${serverUrl}/me`, {
   headers: { Authorization: `Bearer ${token}` },
 });
         setUsername(res.data.username);

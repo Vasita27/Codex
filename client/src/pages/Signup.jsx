@@ -16,7 +16,7 @@ function Signup() {
     console.log('Attempting signup with data:', userData);
     console.log('API Endpoint:', `${process.env.REACT_APP_SERVER_URI}/signup`);
     try {
-      await axios.post(`${serverUrl}/api/auth/signup`, { username, email, password })
+      await axios.post(`${serverUrl}/signup`, { username, email, password })
       navigate('/')
       console.log('Signup response:', res.data);
     } catch (err) {

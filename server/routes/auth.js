@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 
 // Signup
 router.post("/signup", async (req, res) => {
+  console.log('📦 Received signup body:', req.body);
   try {
     if (!req.body.username || !req.body.password || !req.body.email) {
       return res.status(400).json({ error: "Missing required fields" });

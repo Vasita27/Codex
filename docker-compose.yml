@@ -30,7 +30,9 @@ services:
 
   client:
     build: ./client
-    
+    ports:
+      - "80:80"
+      
     depends_on:
       - server
       - flask-ai

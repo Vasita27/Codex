@@ -29,10 +29,7 @@ services:
     restart: always
 
   client:
-    build: ./client
-    ports:
-      - "80:80"
-      
+    build: ./client  
     depends_on:
       - server
       - flask-ai

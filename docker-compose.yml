@@ -10,7 +10,6 @@ services:
     restart: always
     depends_on:
       - mongodb
-    # Optional resource limits
     deploy:
       resources:
         limits:
@@ -22,14 +21,16 @@ services:
     env_file:
       - ./server/.env
     ports:
-      - "5000:5000" 
+      - "5000:5000"
     depends_on:
       - flask-ai
       - mongodb
     restart: always
 
   client:
-    build: ./client  
+    build: ./client
+    ports:
+      - "3000:80"     # ⬅️ This line exposes client on host:3000 → container:80
     depends_on:
       - server
       - flask-ai
@@ -37,7 +38,6 @@ services:
 
   mongodb:
     image: mongo
-    container_name: mongo
     command: ["--quiet"]
     volumes:
       - mongo-data:/data/db
